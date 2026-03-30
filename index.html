@@ -1,0 +1,1067 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard Keuangan — Alvin & Evi</title>
+
+<!-- Supabase JS -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap');
+
+:root {
+  --navy: #1E3A5F; --blue: #2D6A9F; --sky: #D6E8F7;
+  --gold: #C9A84C; --gold-light: #FFFDE7;
+  --green: #16A34A; --green-light: #F0FDF4;
+  --red: #DC2626; --red-light: #FEF2F2;
+  --purple: #7C3AED; --purple-light: #F5F3FF;
+  --teal: #0D9488; --teal-light: #F0FDFA;
+  --gray: #64748B; --gray-light: #F8FAFC;
+  --border: #E2E8F0; --text: #0F172A; --text-m: #64748B;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:'Plus Jakarta Sans',sans-serif; background:#F1F5F9; color:var(--text); }
+
+/* ── CONFIG BANNER ── */
+#config-banner {
+  background: linear-gradient(90deg, #7C3AED, #2D6A9F);
+  color: white;
+  padding: 12px 20px;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+#config-banner input {
+  background: rgba(255,255,255,0.15);
+  border: 1px solid rgba(255,255,255,0.3);
+  color: white;
+  padding: 5px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-family: 'JetBrains Mono', monospace;
+  width: 280px;
+}
+#config-banner input::placeholder { color: rgba(255,255,255,0.5); }
+#config-banner button {
+  background: white;
+  color: #7C3AED;
+  border: none;
+  padding: 6px 14px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+}
+.config-status { font-size: 11px; opacity: 0.8; }
+
+/* ── HEADER ── */
+.header {
+  background: linear-gradient(135deg, var(--navy) 0%, #2D4E7A 60%, #1a5276 100%);
+  padding: 24px 28px 20px;
+  position: relative; overflow: hidden;
+}
+.header::before {
+  content:''; position:absolute; top:-40px; right:-40px;
+  width:200px; height:200px; background:rgba(201,168,76,0.1); border-radius:50%;
+}
+.header-content { position:relative; z-index:1; }
+.header-top { display:flex; align-items:flex-start; justify-content:space-between; flex-wrap:wrap; gap:10px; }
+.header h1 { color:white; font-size:20px; font-weight:800; }
+.header p { color:rgba(255,255,255,0.6); font-size:12px; margin-top:3px; }
+.header-badge { background:rgba(201,168,76,0.2); border:1px solid rgba(201,168,76,0.4); color:#FCD34D; padding:4px 12px; border-radius:20px; font-size:11px; font-weight:600; }
+.header-meta { display:flex; gap:18px; margin-top:14px; flex-wrap:wrap; }
+.meta-item { color:rgba(255,255,255,0.65); font-size:12px; }
+.meta-item strong { color:white; font-weight:700; }
+#last-sync { font-size:10px; color:rgba(255,255,255,0.45); margin-top:6px; }
+
+/* ── AUTH BAR ── */
+#auth-bar {
+  background: var(--navy);
+  padding: 8px 28px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 12px;
+  color: rgba(255,255,255,0.7);
+}
+#auth-bar input {
+  background: rgba(255,255,255,0.1);
+  border: 1px solid rgba(255,255,255,0.2);
+  color: white;
+  padding: 4px 10px;
+  border-radius: 5px;
+  font-size: 12px;
+  font-family: inherit;
+  width: 160px;
+}
+#auth-bar input::placeholder { color: rgba(255,255,255,0.4); }
+#auth-bar button { background:var(--gold); color:var(--navy); border:none; padding:5px 12px; border-radius:5px; font-size:11px; font-weight:700; cursor:pointer; }
+#user-info { color:#86EFAC; font-weight:600; }
+
+/* ── TABS ── */
+.tabs-bar { background:white; border-bottom:1px solid var(--border); padding:0 20px; display:flex; gap:2px; overflow-x:auto; }
+.tab-btn { padding:13px 16px; font-size:13px; font-weight:600; color:var(--gray); background:none; border:none; border-bottom:3px solid transparent; cursor:pointer; white-space:nowrap; transition:all .2s; font-family:inherit; }
+.tab-btn:hover { color:var(--navy); }
+.tab-btn.active { color:var(--navy); border-bottom-color:var(--navy); }
+
+/* ── MAIN ── */
+.main { padding:20px 24px; max-width:1200px; margin:0 auto; }
+.tab-content { display:none; }
+.tab-content.active { display:block; }
+
+/* ── LOADING ── */
+.loading-overlay {
+  display:flex; align-items:center; justify-content:center;
+  padding:60px; color:var(--gray); font-size:14px; gap:10px;
+}
+.spinner {
+  width:20px; height:20px; border:2px solid var(--border);
+  border-top-color:var(--navy); border-radius:50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform:rotate(360deg); } }
+
+/* ── KPI ── */
+.kpi-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(155px,1fr)); gap:12px; margin-bottom:20px; }
+.kpi-card { background:white; border-radius:14px; padding:16px; border:1px solid var(--border); transition:all .2s; cursor:default; }
+.kpi-card:hover { transform:translateY(-2px); box-shadow:0 6px 20px rgba(0,0,0,0.08); }
+.kpi-icon { font-size:20px; margin-bottom:7px; }
+.kpi-label { font-size:10px; font-weight:700; color:var(--text-m); letter-spacing:.5px; text-transform:uppercase; }
+.kpi-value { font-size:17px; font-weight:800; color:var(--text); margin:3px 0 2px; font-family:'JetBrains Mono',monospace; }
+.kpi-sub { font-size:10px; color:var(--text-m); }
+.kpi-card.green { border-top:3px solid var(--green); }
+.kpi-card.blue { border-top:3px solid var(--blue); }
+.kpi-card.gold { border-top:3px solid var(--gold); }
+.kpi-card.purple { border-top:3px solid var(--purple); }
+.kpi-card.teal { border-top:3px solid var(--teal); }
+.kpi-card.red-t { border-top:3px solid var(--red); }
+
+/* ── SECTION CARD ── */
+.section-card { background:white; border-radius:14px; border:1px solid var(--border); overflow:hidden; margin-bottom:18px; }
+.section-header { padding:14px 18px; display:flex; align-items:center; justify-content:space-between; background:var(--gray-light); border-bottom:1px solid var(--border); }
+.section-header h2 { font-size:14px; font-weight:700; color:var(--navy); }
+
+/* ── TABLE ── */
+.data-table { width:100%; border-collapse:collapse; }
+.data-table th { background:var(--navy); color:white; padding:10px 13px; font-size:11px; font-weight:700; text-align:left; }
+.data-table td { padding:10px 13px; font-size:12px; border-bottom:1px solid var(--border); vertical-align:middle; }
+.data-table tr:last-child td { border-bottom:none; }
+.data-table tr:nth-child(even) td { background:var(--gray-light); }
+.data-table tr:hover td { background:#EFF6FF; }
+.data-table .mono { font-family:'JetBrains Mono',monospace; font-size:11px; }
+.data-table .right { text-align:right; }
+.data-table .total-row td { background:var(--navy)!important; color:white!important; font-weight:700; }
+.data-table .total-row .mono { color:#FCD34D; }
+
+/* ── BADGE ── */
+.badge { display:inline-flex; align-items:center; padding:2px 8px; border-radius:20px; font-size:10px; font-weight:700; white-space:nowrap; }
+.b-red { background:var(--red-light); color:var(--red); }
+.b-green { background:var(--green-light); color:var(--green); }
+.b-gold { background:#FFF8E8; color:#92400E; }
+.b-blue { background:#EFF6FF; color:var(--blue); }
+.b-purple { background:var(--purple-light); color:var(--purple); }
+.b-teal { background:var(--teal-light); color:var(--teal); }
+.b-gray { background:#F1F5F9; color:var(--gray); }
+
+/* ── INLINE EDIT ── */
+.edit-btn {
+  background: none; border: 1px solid var(--border); color: var(--gray);
+  padding: 2px 8px; border-radius: 5px; font-size: 10px; cursor: pointer;
+  font-family: inherit; transition: all .2s;
+}
+.edit-btn:hover { background: var(--navy); color: white; border-color: var(--navy); }
+.save-btn {
+  background: var(--green); color: white; border: none;
+  padding: 2px 8px; border-radius: 5px; font-size: 10px; cursor: pointer;
+  font-family: inherit; margin-left: 4px;
+}
+.cancel-btn {
+  background: var(--gray); color: white; border: none;
+  padding: 2px 8px; border-radius: 5px; font-size: 10px; cursor: pointer;
+  font-family: inherit; margin-left: 2px;
+}
+.inline-input {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  padding: 3px 7px;
+  border: 1px solid var(--gold);
+  border-radius: 5px;
+  width: 130px;
+  background: var(--gold-light);
+  color: var(--navy);
+}
+.inline-input:focus { outline: none; box-shadow: 0 0 0 2px rgba(201,168,76,0.2); }
+
+/* ── PROGRESS ── */
+.progress-bar { height:8px; background:#E2E8F0; border-radius:99px; overflow:hidden; margin:6px 0 2px; }
+.progress-fill { height:100%; border-radius:99px; transition:width 1s ease; }
+.progress-label { display:flex; justify-content:space-between; font-size:11px; color:var(--text-m); }
+
+/* ── ALERT ── */
+.alert-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(270px,1fr)); gap:12px; margin-bottom:18px; }
+.alert-card { padding:14px 16px; border-radius:12px; border:1px solid var(--border); background:white; }
+.alert-card.urgent { border-left:4px solid var(--red); }
+.alert-card.warning { border-left:4px solid var(--gold); }
+.alert-card.info { border-left:4px solid var(--blue); }
+.alert-title { font-size:12px; font-weight:700; margin-bottom:4px; }
+.alert-body { font-size:11px; color:var(--text-m); line-height:1.5; }
+.urgent .alert-title { color:var(--red); }
+.warning .alert-title { color:#92400E; }
+.info .alert-title { color:var(--blue); }
+
+/* ── CHECKBOX ── */
+.action-check { width:16px; height:16px; cursor:pointer; accent-color:var(--navy); }
+.done-row td { opacity:.45; }
+.done-row td:first-child { opacity:1; }
+
+/* ── TOAST ── */
+#toast {
+  position: fixed; bottom: 24px; right: 24px;
+  background: var(--navy); color: white;
+  padding: 12px 18px; border-radius: 10px;
+  font-size: 13px; font-weight: 600;
+  transform: translateY(80px); opacity: 0;
+  transition: all .3s; z-index: 999;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+}
+#toast.show { transform: translateY(0); opacity: 1; }
+#toast.success { background: var(--green); }
+#toast.error { background: var(--red); }
+
+/* ── TWO COL ── */
+.two-col { display:grid; grid-template-columns:1fr 1fr; gap:18px; margin-bottom:18px; }
+@media (max-width:700px) { .two-col { grid-template-columns:1fr; } }
+
+/* ── CF ROW ── */
+.cf-row { display:flex; justify-content:space-between; align-items:center; padding:9px 18px; border-bottom:1px solid var(--border); font-size:12px; }
+.cf-row:last-child { border-bottom:none; }
+.cf-row.total { background:var(--navy); color:white; font-weight:700; }
+.cf-row.total span:last-child { color:#FCD34D; font-family:'JetBrains Mono',monospace; }
+.cf-label { color:var(--text-m); }
+.cf-row.total .cf-label { color:rgba(255,255,255,0.7); }
+
+/* ── SCHOOL GRID ── */
+.school-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:12px; padding:16px; }
+.school-card { border-radius:10px; border:2px solid var(--border); padding:14px; transition:all .2s; }
+.school-card:hover { transform:translateY(-2px); box-shadow:0 6px 16px rgba(0,0,0,0.08); }
+.school-card.best { border-color:var(--green); background:var(--green-light); }
+.school-card.medium { border-color:var(--gold); background:#FFFDE7; }
+.school-card.premium { border-color:var(--red); background:var(--red-light); }
+.school-card.fund { border-color:var(--blue); background:#EFF6FF; }
+.school-name { font-size:13px; font-weight:700; margin-bottom:7px; }
+.school-yr1 { font-size:17px; font-weight:800; font-family:'JetBrains Mono',monospace; }
+.school-total { font-size:11px; color:var(--text-m); margin-top:2px; }
+.school-note { font-size:11px; margin-top:7px; line-height:1.5; }
+
+/* ── PROJ GRID ── */
+.proj-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:10px; padding:16px; }
+.proj-card { text-align:center; padding:14px 10px; border-radius:10px; background:var(--gray-light); border:1px solid var(--border); }
+.proj-year { font-size:10px; font-weight:700; color:var(--text-m); letter-spacing:.5px; margin-bottom:5px; }
+.proj-value { font-family:'JetBrains Mono',monospace; font-size:14px; font-weight:700; color:var(--navy); }
+.proj-label { font-size:10px; color:var(--text-m); margin-top:2px; }
+.proj-card.hl { background:var(--navy); border-color:var(--navy); }
+.proj-card.hl .proj-year { color:rgba(255,255,255,.55); }
+.proj-card.hl .proj-value { color:#FCD34D; }
+.proj-card.hl .proj-label { color:rgba(255,255,255,.55); }
+
+/* ── TIMELINE ── */
+.timeline { padding:4px 18px 14px; }
+.tl-item { display:flex; gap:14px; padding:12px 0; border-bottom:1px solid var(--border); }
+.tl-item:last-child { border-bottom:none; }
+.tl-dot { width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:13px; flex-shrink:0; margin-top:1px; }
+.tl-dot.urgent { background:var(--red-light); }
+.tl-dot.active { background:#FFF7ED; }
+.tl-dot.planned { background:#EFF6FF; }
+.tl-dot.future { background:var(--gray-light); }
+.tl-dot.done { background:var(--green-light); }
+.tl-right { flex:1; }
+.tl-title { font-size:13px; font-weight:700; }
+.tl-sub { font-size:11px; color:var(--text-m); margin-top:2px; line-height:1.5; }
+.tl-date { font-size:10px; font-weight:700; color:var(--blue); margin-top:3px; font-family:'JetBrains Mono',monospace; }
+</style>
+</head>
+<body>
+
+<!-- SUPABASE CONFIG BANNER -->
+<div id="config-banner" style="display:none;">
+  <span>⚙️ <strong>Setup Supabase:</strong></span>
+  <input type="text" id="sb-url" placeholder="https://xxxx.supabase.co" />
+  <input type="text" id="sb-key" placeholder="anon public key..." style="width:340px;" />
+  <button onclick="initSupabase()">Hubungkan</button>
+  <span class="config-status" id="config-status">Belum terhubung</span>
+</div>
+
+<!-- AUTH BAR -->
+<div id="auth-bar">
+  <span>🔐 Login untuk edit data:</span>
+  <input type="email" id="auth-email" placeholder="email@domain.com" />
+  <input type="password" id="auth-pass" placeholder="password" style="width:120px;" />
+  <button onclick="loginUser()">Login</button>
+  <button onclick="logoutUser()" style="background:#E2E8F0;color:var(--navy);display:none;" id="btn-logout">Logout</button>
+  <span id="user-info"></span>
+</div>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="header-content">
+    <div class="header-top">
+      <div>
+        <h1>🏠 Rencana Keuangan Alvin & Evi</h1>
+        <p>Alvin 32 · Evi 31 · Arya 4 · Target Pensiun 2047 · <span id="last-sync">Belum sync Supabase</span></p>
+      </div>
+      <div class="header-badge" id="sync-badge">● OFFLINE</div>
+    </div>
+    <div class="header-meta">
+      <div class="meta-item">Net Worth <strong id="h-networth">~921jt</strong></div>
+      <div class="meta-item">Investable <strong id="h-investable">~776jt</strong></div>
+      <div class="meta-item">Surplus/bln <strong id="h-surplus">Rp 23,3jt</strong></div>
+      <div class="meta-item">Savings Rate <strong id="h-srate">53%</strong></div>
+    </div>
+  </div>
+</div>
+
+<!-- TABS -->
+<div class="tabs-bar">
+  <button class="tab-btn active" onclick="showTab('overview',this)">📊 Overview</button>
+  <button class="tab-btn" onclick="showTab('portfolio',this)">💼 Portofolio</button>
+  <button class="tab-btn" onclick="showTab('cashflow',this)">💵 Cashflow</button>
+  <button class="tab-btn" onclick="showTab('goals',this)">🎯 Goals</button>
+  <button class="tab-btn" onclick="showTab('actions',this)">✅ Action Plan</button>
+  <button class="tab-btn" onclick="showTab('pensiun',this)">🏖️ Pensiun</button>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+
+<!-- OVERVIEW TAB -->
+<div class="tab-content active" id="tab-overview">
+  <div class="kpi-grid" id="kpi-grid">
+    <div class="kpi-card green"><div class="kpi-icon">💰</div><div class="kpi-label">Net Worth</div><div class="kpi-value" id="kpi-nw">—</div><div class="kpi-sub">Total semua aset</div></div>
+    <div class="kpi-card blue"><div class="kpi-icon">📈</div><div class="kpi-label">Surplus Bulanan</div><div class="kpi-value" id="kpi-surplus">—</div><div class="kpi-sub" id="kpi-srate-sub">Savings rate loading...</div></div>
+    <div class="kpi-card gold"><div class="kpi-icon">🕌</div><div class="kpi-label">Terkumpul Haji</div><div class="kpi-value" id="kpi-haji">—</div><div class="kpi-sub">Target 410–492jt</div></div>
+    <div class="kpi-card purple"><div class="kpi-icon">📚</div><div class="kpi-label">Dana SD Arya</div><div class="kpi-value" id="kpi-arya">—</div><div class="kpi-sub">Target 2027</div></div>
+    <div class="kpi-card teal"><div class="kpi-icon">🏖️</div><div class="kpi-label">Target Pensiun</div><div class="kpi-value">9,8–14,2M</div><div class="kpi-sub">2047 · 21 tahun lagi</div></div>
+    <div class="kpi-card red-t"><div class="kpi-icon">⚠️</div><div class="kpi-label">Dana Darurat Gap</div><div class="kpi-value" id="kpi-darurat">—</div><div class="kpi-sub">Target 123jt</div></div>
+  </div>
+
+  <div class="alert-grid">
+    <div class="alert-card urgent"><div class="alert-title">🔴 Portfolio Terlalu Defensif</div><div class="alert-body">65% obligasi/RD FI. Real return 2,6%/thn setelah inflasi. Redeploy ke saham IDR 40% + IBKR ETF 25%.</div></div>
+    <div class="alert-card urgent"><div class="alert-title">🔴 Alvin Belum Punya Term Life</div><div class="alert-body">Jika terjadi sesuatu, Evi hanya pegang Rp13,6jt/bln. Beli Rp3,5M sebelum April habis (Allianz/Hanwha/FWD).</div></div>
+    <div class="alert-card warning"><div class="alert-title">🟡 Dana Darurat Belum Dedicated</div><div class="alert-body">Aktual Rp84jt, target Rp123jt. Deficit ~Rp39jt. Pisah ke RD PU khusus saat ST012T2 cair Mei 2026.</div></div>
+  </div>
+
+  <div class="section-card">
+    <div class="section-header"><h2>💼 Komposisi Portfolio</h2><span class="badge b-blue" id="port-total-badge">Loading...</span></div>
+    <div id="portfolio-overview-loading" class="loading-overlay"><div class="spinner"></div> Mengambil data dari Supabase...</div>
+    <div id="portfolio-overview-content" style="display:none;padding:16px;">
+      <div style="display:flex;align-items:center;gap:20px;flex-wrap:wrap;">
+        <canvas id="donut-canvas" width="160" height="160" style="flex-shrink:0;"></canvas>
+        <div id="donut-legend" style="flex:1;min-width:160px;"></div>
+      </div>
+      <div id="allocation-progress" style="margin-top:16px;display:grid;gap:10px;"></div>
+    </div>
+  </div>
+</div>
+
+<!-- PORTFOLIO TAB -->
+<div class="tab-content" id="tab-portfolio">
+  <div class="section-card">
+    <div class="section-header"><h2>💼 Detail Portfolio</h2><span class="badge b-gold" id="port-total-text">Loading...</span></div>
+    <div id="portfolio-loading" class="loading-overlay"><div class="spinner"></div> Mengambil data...</div>
+    <div id="portfolio-content" style="display:none;">
+      <table class="data-table">
+        <thead><tr><th>Instrumen</th><th>Pemilik</th><th class="right">Nilai (Rp)</th><th>%</th><th>Status</th><th>Aksi</th><th style="width:80px;text-align:center;">Edit</th></tr></thead>
+        <tbody id="portfolio-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="section-card">
+    <div class="section-header"><h2>🎯 Target Alokasi</h2></div>
+    <table class="data-table">
+      <thead><tr><th>Kelas Aset</th><th>Target %</th><th class="right">Target Nominal</th><th>Instrumen</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Saham IDR</strong></td><td><span class="badge b-green">40%</span></td><td class="mono right" id="tgt-idr">—</td><td>BBCA · ICBP · TLKM</td></tr>
+        <tr><td><strong>IBKR ETF</strong></td><td><span class="badge b-blue">25%</span></td><td class="mono right" id="tgt-ibkr">—</td><td>VTI 70% · VXUS 30%</td></tr>
+        <tr><td><strong>SBN</strong></td><td><span class="badge b-teal">20%</span></td><td class="mono right" id="tgt-sbn">—</td><td>ST / SBR / ORI baru</td></tr>
+        <tr><td><strong>Emas</strong></td><td><span class="badge b-gold">10%</span></td><td class="mono right" id="tgt-emas">—</td><td>Emas fisik / digital</td></tr>
+        <tr><td><strong>RD Pasar Uang</strong></td><td><span class="badge b-gray">5%</span></td><td class="mono right" id="tgt-rdu">—</td><td>RD PU Syariah</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- CASHFLOW TAB -->
+<div class="tab-content" id="tab-cashflow">
+  <div id="cashflow-loading" class="loading-overlay"><div class="spinner"></div> Mengambil data cashflow...</div>
+  <div id="cashflow-content" style="display:none;">
+    <div class="two-col">
+      <div class="section-card">
+        <div class="section-header"><h2>💵 Penghasilan Bulanan</h2></div>
+        <div id="income-rows"></div>
+        <div class="cf-row total"><span class="cf-label">TOTAL PENGHASILAN</span><span id="total-income">—</span></div>
+      </div>
+      <div class="section-card">
+        <div class="section-header"><h2>📊 Neraca Bulanan</h2></div>
+        <div class="cf-row"><span class="cf-label">Penghasilan</span><span style="color:var(--green);font-weight:700;font-family:'JetBrains Mono',monospace;" id="neraca-income">—</span></div>
+        <div class="cf-row"><span class="cf-label">Pengeluaran</span><span style="color:var(--red);font-weight:700;font-family:'JetBrains Mono',monospace;" id="neraca-expense">—</span></div>
+        <div class="cf-row total"><span class="cf-label">SURPLUS</span><span id="neraca-surplus">—</span></div>
+        <div style="padding:12px 18px;">
+          <div class="progress-label"><span style="font-weight:700;color:var(--green);" id="srate-label">Savings Rate: —</span><span>Target ≥ 50%</span></div>
+          <div class="progress-bar"><div class="progress-fill" id="srate-bar" style="width:0%;background:var(--green);"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-card">
+      <div class="section-header"><h2>🧾 Pengeluaran Detail</h2><span class="badge b-gray" id="expense-total-badge">—</span></div>
+      <table class="data-table">
+        <thead><tr><th>Item</th><th class="right">Nilai (Rp)</th><th>Kategori</th><th>Catatan</th><th style="text-align:center;width:70px;">Edit</th></tr></thead>
+        <tbody id="expense-tbody"></tbody>
+      </table>
+    </div>
+
+    <div class="section-card">
+      <div class="section-header"><h2>📅 DCA Bulanan</h2></div>
+      <div id="dca-rows"></div>
+    </div>
+  </div>
+</div>
+
+<!-- GOALS TAB -->
+<div class="tab-content" id="tab-goals">
+  <div id="goals-loading" class="loading-overlay"><div class="spinner"></div> Mengambil data goals...</div>
+  <div id="goals-content" style="display:none;">
+    <!-- Haji -->
+    <div class="section-card">
+      <div class="section-header"><h2>🕌 Haji Plus 2029</h2><span class="badge b-gold">Target Rp 410–492jt</span></div>
+      <div style="padding:14px 18px;">
+        <div class="progress-label"><span>Dana terkumpul estimasi</span><span id="haji-pct">—</span></div>
+        <div class="progress-bar"><div class="progress-fill" id="haji-bar" style="width:0%;background:var(--gold);"></div></div>
+      </div>
+      <table class="data-table">
+        <thead><tr><th>Sumber</th><th class="right">Nilai Siap (Rp)</th><th class="right">Target (Rp)</th><th>Status</th><th>Deadline</th><th style="text-align:center;width:70px;">Edit</th></tr></thead>
+        <tbody id="haji-tbody"></tbody>
+      </table>
+    </div>
+    <!-- SD Arya -->
+    <div class="section-card">
+      <div class="section-header"><h2>📚 SD Arya 2027–2028</h2><span class="badge b-purple" id="arya-dana">Dana Siap —</span></div>
+      <div class="school-grid">
+        <div class="school-card best">
+          <div class="school-name" style="color:#166534;">✅ Yasporbi Pancoran</div>
+          <div class="school-yr1" style="color:var(--green);">Rp 44jt/thn</div>
+          <div class="school-total">Total 6 thn: ~Rp 153jt</div>
+          <div class="school-note" style="color:#166534;">Dana siap cukup. Opsi paling ringan.</div>
+          <div style="margin-top:8px;"><span class="badge b-green">✅ MAMPU</span></div>
+        </div>
+        <div class="school-card medium">
+          <div class="school-name" style="color:#92400E;">⚠️ Green Montessori</div>
+          <div class="school-yr1" style="color:var(--gold);">Rp 127jt/thn</div>
+          <div class="school-total">Total 6 thn: ~Rp 387jt</div>
+          <div class="school-note" style="color:#92400E;">Islamic. Perlu dana tambahan ~239jt.</div>
+          <div style="margin-top:8px;"><span class="badge b-gold">⚠️ PERLU PLAN</span></div>
+        </div>
+        <div class="school-card premium">
+          <div class="school-name" style="color:#991B1B;">⚠️ Sampoerna Academy</div>
+          <div class="school-yr1" style="color:var(--red);">Rp 70jt/thn</div>
+          <div class="school-total">Total 6 thn: ~Rp 440jt</div>
+          <div class="school-note" style="color:#991B1B;">Total terbesar. SPP naik terus.</div>
+          <div style="margin-top:8px;"><span class="badge b-red">⚠️ PALING MAHAL</span></div>
+        </div>
+        <div class="school-card fund">
+          <div class="school-name" style="color:var(--navy);">💰 Dana Tersedia 2027</div>
+          <div class="school-yr1" style="color:var(--blue);" id="arya-dana-val">~Rp 148jt</div>
+          <div class="school-total">Cukup untuk Yasporbi ✅</div>
+          <div class="school-note" style="color:var(--navy);">Schroder→PU ~115jt + Tunj.Pend Jun26 ~33jt</div>
+        </div>
+      </div>
+    </div>
+    <!-- Dana Darurat -->
+    <div class="section-card">
+      <div class="section-header"><h2>🛡️ Dana Darurat</h2></div>
+      <div style="padding:14px 18px;" id="darurat-section"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ACTION PLAN TAB -->
+<div class="tab-content" id="tab-actions">
+  <div style="padding:10px 0 6px;font-size:12px;color:var(--text-m);">💡 Centang aksi yang sudah selesai — tersimpan otomatis ke Supabase (perlu login).</div>
+  <div id="actions-loading" class="loading-overlay"><div class="spinner"></div> Mengambil action items...</div>
+  <div id="actions-content" style="display:none;" id="actions-sections"></div>
+</div>
+
+<!-- PENSIUN TAB -->
+<div class="tab-content" id="tab-pensiun">
+  <div class="kpi-grid">
+    <div class="kpi-card teal"><div class="kpi-icon">🎯</div><div class="kpi-label">Passive Income Target</div><div class="kpi-value">20jt/bln</div><div class="kpi-sub">Nilai hari ini · after tax+zakat</div></div>
+    <div class="kpi-card blue"><div class="kpi-icon">📅</div><div class="kpi-label">Tahun Pensiun</div><div class="kpi-value">2047</div><div class="kpi-sub">Usia 55 · 21 tahun lagi</div></div>
+    <div class="kpi-card gold"><div class="kpi-icon">💰</div><div class="kpi-label">Target Portfolio</div><div class="kpi-value">9,8–14,2M</div><div class="kpi-sub">SWR 4%</div></div>
+  </div>
+
+  <div class="section-card">
+    <div class="section-header"><h2>📈 Proyeksi 3 Skenario</h2></div>
+    <table class="data-table">
+      <thead><tr><th>Skenario</th><th>Return</th><th>Inflasi</th><th class="right">2030</th><th class="right">2035</th><th class="right">2047</th><th>Status</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Bear</strong></td><td>6%/thn</td><td>4.5%</td><td class="mono right">~1,6M</td><td class="mono right">~2,8M</td><td class="mono right">~7,1M</td><td><span class="badge b-red">⚠️ Di Bawah Target</span></td></tr>
+        <tr><td><strong>Base Case ★</strong></td><td>10%/thn</td><td>3.5%</td><td class="mono right">~2,5M</td><td class="mono right">~4,1M</td><td class="mono right">~11,5M</td><td><span class="badge b-green">✅ On Track</span></td></tr>
+        <tr><td><strong>Bull</strong></td><td>12%/thn</td><td>2.5%</td><td class="mono right">~3,0M</td><td class="mono right">~5,4M</td><td class="mono right">~15,2M</td><td><span class="badge b-teal">🚀 Di Atas Target</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="section-card">
+    <div class="section-header"><h2>🗓️ Milestone Portfolio</h2></div>
+    <div class="proj-grid">
+      <div class="proj-card"><div class="proj-year">SEKARANG 2026</div><div class="proj-value" id="proj-now">—</div><div class="proj-label">Investable</div></div>
+      <div class="proj-card"><div class="proj-year">CHECK-IN 2030</div><div class="proj-value">>2,5M</div><div class="proj-label">Target</div></div>
+      <div class="proj-card"><div class="proj-year">CHECK-IN 2035</div><div class="proj-value">>4M</div><div class="proj-label">Arya SMP</div></div>
+      <div class="proj-card"><div class="proj-year">GLIDE PATH 2042</div><div class="proj-value">>7M</div><div class="proj-label">Mulai ke Income</div></div>
+      <div class="proj-card hl"><div class="proj-year">PENSIUN 2047</div><div class="proj-value">9,8–14,2M</div><div class="proj-label">Passive 32-47jt/bln</div></div>
+    </div>
+  </div>
+
+  <div class="section-card">
+    <div class="section-header"><h2>⚙️ Asumsi</h2></div>
+    <table class="data-table">
+      <thead><tr><th>Parameter</th><th>Nilai</th><th>Keterangan</th></tr></thead>
+      <tbody>
+        <tr><td>Inflasi IDR</td><td><span class="badge b-blue">3.5%/thn</span></td><td style="font-size:11px;">Base case. Bear:4.5% | Bull:2.5%</td></tr>
+        <tr><td>Return Saham IDR</td><td><span class="badge b-green">12%/thn</span></td><td style="font-size:11px;">CAGR IHSG konservatif</td></tr>
+        <tr><td>Return IBKR ETF USD</td><td><span class="badge b-blue">10%/thn</span></td><td style="font-size:11px;">VTI historical ~10%</td></tr>
+        <tr><td>PPh Dividen IDR</td><td><span class="badge b-gray">10%</span></td><td style="font-size:11px;">PPh Final dari gross dividen</td></tr>
+        <tr><td>WHT US Dividen (P3B RI-AS)</td><td><span class="badge b-gray">15%</span></td><td style="font-size:11px;">Treaty RI-AS. Isi W-8BEN!</td></tr>
+        <tr><td>Zakat Investasi</td><td><span class="badge b-gold">2.5%</span></td><td style="font-size:11px;">Jika nisab (20gr emas) & haul</td></tr>
+        <tr><td>Safe Withdrawal Rate</td><td><span class="badge b-teal">4%</span></td><td style="font-size:11px;">Bengen rule</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+</div><!-- end .main -->
+
+<!-- TOAST -->
+<div id="toast"></div>
+
+<script>
+// ============================================================
+// CONFIG — GANTI INI DENGAN SUPABASE PROJECT KAMU
+// ============================================================
+let SUPABASE_URL = 'https://nnvnbquhjdrxrxigtshl.supabase.co';
+let SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5udm5icXVoamRyeHJ4aWd0c2hsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4NjEwODcsImV4cCI6MjA5MDQzNzA4N30.yuTC66C9icYOtt3Gru3wtCEWb6Ugtjuqy0TAwFgiBTc';
+let supabase = null;
+let currentUser = null;
+
+// Pre-fill from localStorage
+
+
+
+function initSupabase() {
+  if (!SUPABASE_URL || !SUPABASE_KEY) { showToast('❌ URL dan Key tidak ditemukan!', 'error'); return; }
+  
+  try {
+    supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    localStorage.setItem('sb_url', SUPABASE_URL);
+    localStorage.setItem('sb_key', SUPABASE_KEY);
+    document.getElementById('config-status').textContent = '✅ Terhubung!';
+    document.getElementById('sync-badge').textContent = '● LIVE';
+    document.getElementById('sync-badge').style.background = 'rgba(22,163,74,0.2)';
+    document.getElementById('sync-badge').style.color = '#86EFAC';
+    document.getElementById('sync-badge').style.borderColor = 'rgba(22,163,74,0.4)';
+    showToast('✅ Terhubung ke Supabase!', 'success');
+    loadAllData();
+    setupRealtime();
+  } catch(e) {
+    showToast('❌ Gagal konek: ' + e.message, 'error');
+  }
+}
+
+// Auto-init if credentials saved
+if (true) {
+  setTimeout(() => initSupabase(), 500);
+}
+
+// ── AUTH ──
+async function loginUser() {
+  if (!supabase) { showToast('Hubungkan Supabase dulu!', 'error'); return; }
+  const email = document.getElementById('auth-email').value;
+  const pass = document.getElementById('auth-pass').value;
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password: pass });
+  if (error) { showToast('❌ ' + error.message, 'error'); return; }
+  currentUser = data.user;
+  document.getElementById('user-info').textContent = '✅ Login sebagai: ' + currentUser.email;
+  document.getElementById('btn-logout').style.display = 'inline';
+  showToast('✅ Login berhasil!', 'success');
+}
+
+async function logoutUser() {
+  if (!supabase) return;
+  await supabase.auth.signOut();
+  currentUser = null;
+  document.getElementById('user-info').textContent = '';
+  document.getElementById('btn-logout').style.display = 'none';
+  showToast('👋 Logout berhasil', 'success');
+}
+
+// ── REALTIME ──
+function setupRealtime() {
+  supabase.channel('db-changes')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'portfolio' }, () => loadPortfolio())
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'cashflow' }, () => loadCashflow())
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'goals' }, () => loadGoals())
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'action_items' }, () => loadActions())
+    .subscribe();
+}
+
+// ── HELPERS ──
+function fmt(n) {
+  if (n >= 1e9) return (n/1e9).toFixed(1) + 'M';
+  if (n >= 1e6) return Math.round(n/1e6) + 'jt';
+  return new Intl.NumberFormat('id-ID').format(n);
+}
+function fmtFull(n) { return new Intl.NumberFormat('id-ID').format(n); }
+function showToast(msg, type='') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'show ' + type;
+  setTimeout(() => t.className = '', 3000);
+}
+function showTab(tab, btn) {
+  document.querySelectorAll('.tab-content').forEach(e => e.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(e => e.classList.remove('active'));
+  document.getElementById('tab-' + tab).classList.add('active');
+  if (btn) btn.classList.add('active');
+}
+function syncTime() {
+  document.getElementById('last-sync').textContent = 'Last sync: ' + new Date().toLocaleTimeString('id-ID');
+}
+
+// ── STATUS BADGE COLORS ──
+function statusBadge(s) {
+  const map = {
+    'EARMARK SD': 'b-purple', 'REDEEM': 'b-red', 'JT MEI 2026': 'b-blue',
+    'EARMARK HAJI': 'b-gold', 'HOLD': 'b-green', 'AKTIF': 'b-gray',
+    'DONE': 'b-green', 'LOCKED': 'b-gold', 'SAVING': 'b-blue',
+    'PLANNED': 'b-gray', 'TARGET': 'b-teal', 'SIAP': 'b-green', 'DEFICIT': 'b-red',
+    'TODO': 'b-red', 'UPCOMING': 'b-gray'
+  };
+  return `<span class="badge ${map[s]||'b-gray'}">${s}</span>`;
+}
+
+// ── LOAD ALL ──
+async function loadAllData() {
+  await Promise.all([loadPortfolio(), loadCashflow(), loadGoals(), loadActions()]);
+}
+
+// ── PORTFOLIO ──
+async function loadPortfolio() {
+  if (!supabase) return;
+  const { data, error } = await supabase.from('portfolio').select('*').order('urutan');
+  if (error) { showToast('❌ Error load portfolio: ' + error.message, 'error'); return; }
+  
+  const total = data.reduce((s, r) => s + (r.nilai||0), 0);
+  
+  // KPIs
+  document.getElementById('kpi-nw').textContent = fmt(total - 39027516);
+  document.getElementById('h-networth').textContent = '~' + fmt(total - 39027516);
+  document.getElementById('h-investable').textContent = '~' + fmt(total);
+  document.getElementById('port-total-badge').textContent = 'Total ~Rp ' + fmt(total);
+  document.getElementById('port-total-text').textContent = 'Total ~Rp ' + fmt(total);
+  document.getElementById('proj-now').textContent = fmt(total);
+  
+  // Target nominal
+  document.getElementById('tgt-idr').textContent = fmtFull(Math.round(total * 0.4));
+  document.getElementById('tgt-ibkr').textContent = fmtFull(Math.round(total * 0.25));
+  document.getElementById('tgt-sbn').textContent = fmtFull(Math.round(total * 0.2));
+  document.getElementById('tgt-emas').textContent = fmtFull(Math.round(total * 0.1));
+  document.getElementById('tgt-rdu').textContent = fmtFull(Math.round(total * 0.05));
+
+  // Donut chart
+  renderDonut(data, total);
+  
+  // Allocation progress
+  renderAllocationProgress(data, total);
+
+  // Table
+  const tbody = document.getElementById('portfolio-tbody');
+  tbody.innerHTML = '';
+  data.forEach(r => {
+    const pct = total > 0 ? ((r.nilai/total)*100).toFixed(1) : '0.0';
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><strong>${r.nama}</strong></td>
+      <td>${r.pemilik||'—'}</td>
+      <td class="mono right" id="p-val-${r.id}">${fmtFull(r.nilai)}</td>
+      <td>${pct}%</td>
+      <td>${statusBadge(r.status)}</td>
+      <td style="font-size:11px;color:var(--text-m);">${r.aksi||''}</td>
+      <td style="text-align:center;">
+        <button class="edit-btn" onclick="editPortfolio(${r.id}, ${r.nilai})">✏️ Edit</button>
+      </td>`;
+    tbody.appendChild(tr);
+  });
+
+  // Total row
+  const ttr = document.createElement('tr');
+  ttr.className = 'total-row';
+  ttr.innerHTML = `<td colspan="2"><strong>TOTAL</strong></td><td class="mono right"><strong>${fmtFull(total)}</strong></td><td colspan="4"></td>`;
+  tbody.appendChild(ttr);
+
+  document.getElementById('portfolio-loading').style.display = 'none';
+  document.getElementById('portfolio-content').style.display = 'block';
+  document.getElementById('portfolio-overview-loading').style.display = 'none';
+  document.getElementById('portfolio-overview-content').style.display = 'block';
+  syncTime();
+}
+
+function renderDonut(data, total) {
+  const canvas = document.getElementById('donut-canvas');
+  const ctx = canvas.getContext('2d');
+  const colors = {
+    'SBN': '#2D6A9F', 'RD Fixed Income': '#E74C3C', 'RD Obligasi': '#E07A00',
+    'RD Campuran': '#8B5CF6', 'Saham IDR': '#16A34A', 'Emas': '#C9A84C',
+    'Kas': '#64748B', 'default': '#94A3B8'
+  };
+  
+  // Group by kategori
+  const groups = {};
+  data.forEach(r => {
+    const k = r.kategori || 'default';
+    groups[k] = (groups[k] || 0) + r.nilai;
+  });
+  
+  ctx.clearRect(0, 0, 160, 160);
+  const cx = 80, cy = 80, R = 54, W = 28;
+  let angle = -Math.PI / 2;
+  
+  const legend = document.getElementById('donut-legend');
+  legend.innerHTML = '';
+  
+  Object.entries(groups).forEach(([k, v]) => {
+    const sweep = (v / total) * Math.PI * 2;
+    const color = colors[k] || colors.default;
+    ctx.beginPath();
+    ctx.arc(cx, cy, R, angle, angle + sweep);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = W;
+    ctx.stroke();
+    angle += sweep;
+    
+    legend.innerHTML += `
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:7px;">
+        <div style="width:10px;height:10px;border-radius:2px;background:${color};flex-shrink:0;"></div>
+        <span style="flex:1;font-size:11px;color:var(--text-m);">${k}</span>
+        <span style="font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;">${((v/total)*100).toFixed(1)}%</span>
+      </div>`;
+  });
+  
+  // Center label
+  ctx.fillStyle = '#1E3A5F';
+  ctx.font = 'bold 12px Plus Jakarta Sans';
+  ctx.textAlign = 'center';
+  ctx.fillText('Rp ' + fmt(total), cx, cy - 6);
+  ctx.fillStyle = '#64748B';
+  ctx.font = '10px Plus Jakarta Sans';
+  ctx.fillText('Investable', cx, cy + 10);
+}
+
+function renderAllocationProgress(data, total) {
+  const container = document.getElementById('allocation-progress');
+  const categories = [
+    { label: 'Saham IDR', target: 40, keys: ['Saham IDR'] },
+    { label: 'IBKR ETF', target: 25, keys: ['IBKR ETF'] },
+    { label: 'SBN', target: 20, keys: ['SBN'] },
+    { label: 'Emas', target: 10, keys: ['Emas'] },
+    { label: 'RD FI (harus 0%)', target: 0, keys: ['RD Fixed Income', 'RD Obligasi'], isNeg: true },
+  ];
+  
+  container.innerHTML = '<div style="font-size:11px;font-weight:700;color:var(--text-m);margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px;">Aktual vs Target Alokasi</div>';
+  
+  categories.forEach(cat => {
+    const actual = data.filter(r => cat.keys.includes(r.kategori)).reduce((s, r) => s + r.nilai, 0);
+    const pct = total > 0 ? (actual / total * 100) : 0;
+    const color = cat.isNeg ? '#DC2626' : '#16A34A';
+    container.innerHTML += `
+      <div style="margin-bottom:8px;">
+        <div class="progress-label">
+          <span>${cat.label}</span>
+          <span>Aktual ${pct.toFixed(1)}% → Target ${cat.target}%</span>
+        </div>
+        <div class="progress-bar"><div class="progress-fill" style="width:${Math.min(pct,100)}%;background:${color};"></div></div>
+      </div>`;
+  });
+}
+
+async function editPortfolio(id, currentVal) {
+  if (!currentUser) { showToast('⚠️ Login dulu untuk edit!', 'error'); return; }
+  const cell = document.getElementById('p-val-' + id);
+  cell.innerHTML = `
+    <input class="inline-input" id="inp-${id}" value="${currentVal}" type="number" />
+    <button class="save-btn" onclick="savePortfolio(${id})">Simpan</button>
+    <button class="cancel-btn" onclick="loadPortfolio()">Batal</button>`;
+}
+
+async function savePortfolio(id) {
+  const val = parseInt(document.getElementById('inp-' + id).value);
+  if (isNaN(val)) { showToast('❌ Nilai harus angka!', 'error'); return; }
+  const { error } = await supabase.from('portfolio').update({ nilai: val }).eq('id', id);
+  if (error) { showToast('❌ Gagal simpan: ' + error.message, 'error'); return; }
+  showToast('✅ Nilai portfolio diperbarui!', 'success');
+  loadPortfolio();
+}
+
+// ── CASHFLOW ──
+async function loadCashflow() {
+  if (!supabase) return;
+  const { data, error } = await supabase.from('cashflow').select('*').order('urutan');
+  if (error) return;
+
+  const incomes = data.filter(r => r.tipe === 'income' && r.aktif);
+  const expenses = data.filter(r => r.tipe === 'expense' && r.aktif);
+  const dcas = data.filter(r => r.tipe === 'dca');
+
+  const totalIncome = incomes.reduce((s, r) => s + r.nilai, 0);
+  const totalExpense = expenses.reduce((s, r) => s + r.nilai, 0);
+  const surplus = totalIncome - totalExpense;
+  const srate = totalIncome > 0 ? (surplus / totalIncome * 100) : 0;
+
+  // Neraca
+  document.getElementById('total-income').textContent = 'Rp ' + fmtFull(totalIncome);
+  document.getElementById('neraca-income').textContent = '+ ' + fmtFull(totalIncome);
+  document.getElementById('neraca-expense').textContent = '- ' + fmtFull(totalExpense);
+  document.getElementById('neraca-surplus').textContent = 'Rp ' + fmtFull(surplus);
+  document.getElementById('srate-label').textContent = 'Savings Rate: ' + srate.toFixed(1) + '%';
+  document.getElementById('srate-bar').style.width = Math.min(srate, 100) + '%';
+  document.getElementById('expense-total-badge').textContent = 'Total Rp ' + fmt(totalExpense);
+
+  // Header KPIs
+  document.getElementById('kpi-surplus').textContent = fmt(surplus);
+  document.getElementById('kpi-srate-sub').textContent = 'Savings rate ' + srate.toFixed(0) + '%';
+  document.getElementById('h-surplus').textContent = 'Rp ' + fmt(surplus);
+  document.getElementById('h-srate').textContent = srate.toFixed(0) + '%';
+
+  // Income rows
+  const incomeDiv = document.getElementById('income-rows');
+  incomeDiv.innerHTML = '';
+  incomes.forEach(r => {
+    incomeDiv.innerHTML += `<div class="cf-row"><span class="cf-label">${r.nama}</span><span class="mono">Rp ${fmtFull(r.nilai)}</span></div>`;
+  });
+
+  // Expense table
+  const ebody = document.getElementById('expense-tbody');
+  ebody.innerHTML = '';
+  const catColors = { 'Need': '#FFF0E0', 'Wants': '#FFE8E8', 'Cicilan': '#E8F0FF', 'Subscription': '#F0E8FF' };
+  expenses.forEach(r => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${r.nama}</td>
+      <td class="mono right" id="cf-val-${r.id}">${fmtFull(r.nilai)}</td>
+      <td><span class="badge b-gray">${r.kategori}</span></td>
+      <td style="font-size:11px;color:var(--text-m);">${r.catatan||''}</td>
+      <td style="text-align:center;"><button class="edit-btn" onclick="editCashflow(${r.id}, ${r.nilai})">✏️</button></td>`;
+    ebody.appendChild(tr);
+  });
+
+  // Total expense
+  const ttr = document.createElement('tr');
+  ttr.className = 'total-row';
+  ttr.innerHTML = `<td><strong>TOTAL PENGELUARAN</strong></td><td class="mono right"><strong>${fmtFull(totalExpense)}</strong></td><td colspan="3"></td>`;
+  ebody.appendChild(ttr);
+
+  // DCA rows
+  const dcaDiv = document.getElementById('dca-rows');
+  dcaDiv.innerHTML = '';
+  dcas.forEach(r => {
+    dcaDiv.innerHTML += `<div class="cf-row"><span>${r.nama}</span><span class="mono" style="font-weight:700;color:var(--blue);">Rp ${fmtFull(r.nilai)}</span></div>`;
+  });
+
+  document.getElementById('cashflow-loading').style.display = 'none';
+  document.getElementById('cashflow-content').style.display = 'block';
+  syncTime();
+}
+
+async function editCashflow(id, val) {
+  if (!currentUser) { showToast('⚠️ Login dulu untuk edit!', 'error'); return; }
+  const cell = document.getElementById('cf-val-' + id);
+  cell.innerHTML = `
+    <input class="inline-input" id="cf-inp-${id}" value="${val}" type="number" />
+    <button class="save-btn" onclick="saveCashflow(${id})">✓</button>
+    <button class="cancel-btn" onclick="loadCashflow()">✗</button>`;
+}
+
+async function saveCashflow(id) {
+  const val = parseInt(document.getElementById('cf-inp-' + id).value);
+  if (isNaN(val)) return;
+  const { error } = await supabase.from('cashflow').update({ nilai: val }).eq('id', id);
+  if (error) { showToast('❌ ' + error.message, 'error'); return; }
+  showToast('✅ Cashflow diperbarui!', 'success');
+  loadCashflow();
+}
+
+// ── GOALS ──
+async function loadGoals() {
+  if (!supabase) return;
+  const { data, error } = await supabase.from('goals').select('*').order('urutan');
+  if (error) return;
+
+  // Haji
+  const hajiData = data.filter(r => r.kategori === 'haji');
+  const hajiTerkumpul = hajiData.filter(r => ['DONE','LOCKED','SAVING','PLANNED'].includes(r.status)).reduce((s,r) => s + r.nilai, 0);
+  const hajiTarget = hajiData.find(r => r.nama.includes('Min'));
+  const hajiTargetVal = hajiTarget ? hajiTarget.target : 410000000;
+  const hajiPct = Math.min((hajiTerkumpul / hajiTargetVal) * 100, 100);
+  document.getElementById('haji-pct').textContent = hajiPct.toFixed(1) + '%';
+  document.getElementById('haji-bar').style.width = hajiPct + '%';
+  document.getElementById('kpi-haji').textContent = fmt(hajiTerkumpul);
+
+  const hajiTbody = document.getElementById('haji-tbody');
+  hajiTbody.innerHTML = '';
+  hajiData.filter(r => !r.nama.includes('Maks')).forEach(r => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${r.nama}</td>
+      <td class="mono right" id="g-val-${r.id}">${fmtFull(r.nilai)}</td>
+      <td class="mono right">${fmtFull(r.target)}</td>
+      <td>${statusBadge(r.status)}</td>
+      <td style="font-size:11px;">${r.deadline||'—'}</td>
+      <td style="text-align:center;"><button class="edit-btn" onclick="editGoal(${r.id}, ${r.nilai})">✏️</button></td>`;
+    hajiTbody.appendChild(tr);
+  });
+
+  // Pendidikan
+  const aryaDana = data.find(r => r.kategori === 'pendidikan' && r.nama.includes('Dana'));
+  if (aryaDana) {
+    document.getElementById('arya-dana').textContent = 'Dana Siap ~Rp ' + fmt(aryaDana.nilai);
+    document.getElementById('arya-dana-val').textContent = '~Rp ' + fmt(aryaDana.nilai);
+    document.getElementById('kpi-arya').textContent = fmt(aryaDana.nilai);
+  }
+
+  // Dana darurat
+  const darurat = data.find(r => r.kategori === 'darurat');
+  if (darurat) {
+    const gap = darurat.target - darurat.nilai;
+    const pct = Math.min((darurat.nilai / darurat.target) * 100, 100);
+    document.getElementById('kpi-darurat').textContent = gap > 0 ? '-' + fmt(gap) : '✅ Cukup';
+    document.getElementById('darurat-section').innerHTML = `
+      <div class="progress-label"><span>Dana Darurat Aktual: Rp ${fmt(darurat.nilai)}</span><span>Target: Rp ${fmt(darurat.target)} (6 bulan)</span></div>
+      <div class="progress-bar"><div class="progress-fill" style="width:${pct}%;background:${gap > 0 ? 'var(--red)' : 'var(--green)'};"></div></div>
+      <div style="margin-top:8px;font-size:12px;color:${gap > 0 ? 'var(--red)' : 'var(--green)'};">
+        ${gap > 0 ? '⚠️ Deficit Rp ' + fmt(gap) + ' — tutup dari pencadangan 13-bulan.' : '✅ Dana darurat sudah cukup!'}
+      </div>
+      <div style="margin-top:8px;"><button class="edit-btn" onclick="editGoal(${darurat.id}, ${darurat.nilai})">✏️ Update nilai aktual</button></div>`;
+  }
+
+  document.getElementById('goals-loading').style.display = 'none';
+  document.getElementById('goals-content').style.display = 'block';
+  syncTime();
+}
+
+async function editGoal(id, val) {
+  if (!currentUser) { showToast('⚠️ Login dulu!', 'error'); return; }
+  const cell = document.getElementById('g-val-' + id);
+  if (!cell) return;
+  cell.innerHTML = `
+    <input class="inline-input" id="g-inp-${id}" value="${val}" type="number" />
+    <button class="save-btn" onclick="saveGoal(${id})">✓</button>
+    <button class="cancel-btn" onclick="loadGoals()">✗</button>`;
+}
+
+async function saveGoal(id) {
+  const val = parseInt(document.getElementById('g-inp-' + id).value);
+  if (isNaN(val)) return;
+  const { error } = await supabase.from('goals').update({ nilai: val }).eq('id', id);
+  if (error) { showToast('❌ ' + error.message, 'error'); return; }
+  showToast('✅ Goal diperbarui!', 'success');
+  loadGoals();
+}
+
+// ── ACTION ITEMS ──
+async function loadActions() {
+  if (!supabase) return;
+  const { data, error } = await supabase.from('action_items').select('*').order('urutan');
+  if (error) return;
+
+  const container = document.getElementById('actions-content');
+  container.innerHTML = '';
+
+  const phases = [...new Set(data.map(r => r.fase))];
+  const priColors = { 'URGENT': 'b-red', 'AKTIF': 'b-gold', 'PENTING': 'b-blue', 'REVIEW': 'b-gray', 'PENSIUN': 'b-teal' };
+  const phaseColors = {
+    'April 2026': '#1E3A5F', 'Mei 2026': '#2D6A9F', 'Juni 2026': '#C9A84C',
+    'Agu–Des 2026': '#2D6A9F', '2027–2029': '#0D9488', '2030–2047': '#64748B'
+  };
+
+  phases.forEach(fase => {
+    const items = data.filter(r => r.fase === fase);
+    const card = document.createElement('div');
+    card.className = 'section-card';
+    card.style.marginBottom = '14px';
+    
+    const bg = phaseColors[fase] || '#1E3A5F';
+    card.innerHTML = `
+      <div class="section-header" style="background:${bg};border-bottom:none;">
+        <h2 style="color:white;">${fase}</h2>
+        <span style="font-size:11px;color:rgba(255,255,255,0.6);">${items.filter(r=>r.selesai).length}/${items.length} selesai</span>
+      </div>
+      <table class="data-table">
+        <thead><tr><th style="width:36px;">✓</th><th style="width:32px;">#</th><th>Aksi</th><th>Detail</th><th>Deadline</th><th>Prioritas</th></tr></thead>
+        <tbody id="action-phase-${fase.replace(/\s/g,'_')}"></tbody>
+      </table>`;
+    container.appendChild(card);
+
+    const tbody = card.querySelector('tbody');
+    items.forEach(r => {
+      const tr = document.createElement('tr');
+      if (r.selesai) tr.classList.add('done-row');
+      tr.id = 'action-' + r.id;
+      tr.innerHTML = `
+        <td><input type="checkbox" class="action-check" ${r.selesai ? 'checked' : ''} onchange="toggleAction(${r.id}, this.checked)" /></td>
+        <td style="text-align:center;font-weight:700;">${r.nomor}</td>
+        <td><strong>${r.aksi}</strong></td>
+        <td style="font-size:11px;color:var(--text-m);">${r.detail||''}</td>
+        <td><span class="badge b-blue" style="font-size:10px;">${r.deadline||''}</span></td>
+        <td><span class="badge ${priColors[r.prioritas]||'b-gray'}">${r.prioritas}</span></td>`;
+      tbody.appendChild(tr);
+    });
+  });
+
+  document.getElementById('actions-loading').style.display = 'none';
+  container.style.display = 'block';
+  syncTime();
+}
+
+async function toggleAction(id, checked) {
+  if (!currentUser) {
+    showToast('⚠️ Login dulu untuk update status!', 'error');
+    document.querySelector(`#action-${id} .action-check`).checked = !checked;
+    return;
+  }
+  const { error } = await supabase.from('action_items')
+    .update({ selesai: checked, status: checked ? 'DONE' : 'TODO' }).eq('id', id);
+  if (error) { showToast('❌ ' + error.message, 'error'); return; }
+  const row = document.getElementById('action-' + id);
+  if (row) { checked ? row.classList.add('done-row') : row.classList.remove('done-row'); }
+  showToast(checked ? '✅ Aksi ditandai selesai!' : '↩️ Aksi dibuka kembali', 'success');
+}
+
+// ── ANIMATE PROGRESS BARS ON LOAD ──
+window.addEventListener('load', () => {
+  setTimeout(() => {
+    document.querySelectorAll('.progress-fill').forEach(f => {
+      const w = f.style.width;
+      f.style.width = '0%';
+      setTimeout(() => { f.style.width = w; }, 200);
+    });
+  }, 500);
+});
+</script>
+</body>
+</html>
