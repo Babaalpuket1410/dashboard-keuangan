@@ -557,7 +557,7 @@ body { font-family:'Plus Jakarta Sans',sans-serif; background:#F1F5F9; color:var
 // ============================================================
 let SUPABASE_URL = 'https://nnvnbquhjdrxrxigtshl.supabase.co';
 let SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5udm5icXVoamRyeHJ4aWd0c2hsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4NjEwODcsImV4cCI6MjA5MDQzNzA4N30.yuTC66C9icYOtt3Gru3wtCEWb6Ugtjuqy0TAwFgiBTc';
-let supabase = null;
+let sbClient = null;
 let currentUser = null;
 
 // Pre-fill from localStorage
@@ -565,36 +565,33 @@ let currentUser = null;
 
 
 function initSupabase() {
-  if (!SUPABASE_URL || !SUPABASE_KEY) { showToast('❌ URL dan Key tidak ditemukan!', 'error'); return; }
-  
   try {
-    supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-    localStorage.setItem('sb_url', SUPABASE_URL);
-    localStorage.setItem('sb_key', SUPABASE_KEY);
-    document.getElementById('config-status').textContent = '✅ Terhubung!';
+    if (typeof window.supabase === 'undefined') {
+      setTimeout(initSupabase, 500);
+      return;
+    }
+    sbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
     document.getElementById('sync-badge').textContent = '● LIVE';
     document.getElementById('sync-badge').style.background = 'rgba(22,163,74,0.2)';
     document.getElementById('sync-badge').style.color = '#86EFAC';
     document.getElementById('sync-badge').style.borderColor = 'rgba(22,163,74,0.4)';
-    showToast('✅ Terhubung ke Supabase!', 'success');
     loadAllData();
     setupRealtime();
   } catch(e) {
-    showToast('❌ Gagal konek: ' + e.message, 'error');
+    console.error('Supabase init error:', e);
+    setTimeout(initSupabase, 1000);
   }
 }
 
-// Auto-init if credentials saved
-if (true) {
-  setTimeout(() => initSupabase(), 500);
-}
+// Auto-connect on load
+window.addEventListener('DOMContentLoaded', () => { setTimeout(initSupabase, 800); });
 
 // ── AUTH ──
 async function loginUser() {
-  if (!supabase) { showToast('Hubungkan Supabase dulu!', 'error'); return; }
+  if (!sbClient) { showToast('Hubungkan Supabase dulu!', 'error'); return; }
   const email = document.getElementById('auth-email').value;
   const pass = document.getElementById('auth-pass').value;
-  const { data, error } = await supabase.auth.signInWithPassword({ email, password: pass });
+  const { data, error } = await sbClient.auth.signInWithPassword({ email, password: pass });
   if (error) { showToast('❌ ' + error.message, 'error'); return; }
   currentUser = data.user;
   document.getElementById('user-info').textContent = '✅ Login sebagai: ' + currentUser.email;
@@ -603,8 +600,8 @@ async function loginUser() {
 }
 
 async function logoutUser() {
-  if (!supabase) return;
-  await supabase.auth.signOut();
+  if (!sbClient) return;
+  await sbClient.auth.signOut();
   currentUser = null;
   document.getElementById('user-info').textContent = '';
   document.getElementById('btn-logout').style.display = 'none';
@@ -613,7 +610,7 @@ async function logoutUser() {
 
 // ── REALTIME ──
 function setupRealtime() {
-  supabase.channel('db-changes')
+  sbClient.channel('db-changes')
     .on('postgres_changes', { event: '*', schema: 'public', table: 'portfolio' }, () => loadPortfolio())
     .on('postgres_changes', { event: '*', schema: 'public', table: 'cashflow' }, () => loadCashflow())
     .on('postgres_changes', { event: '*', schema: 'public', table: 'goals' }, () => loadGoals())
@@ -663,8 +660,8 @@ async function loadAllData() {
 
 // ── PORTFOLIO ──
 async function loadPortfolio() {
-  if (!supabase) return;
-  const { data, error } = await supabase.from('portfolio').select('*').order('urutan');
+  if (!sbClient) return;
+  const { data, error } = await sbClient.from('portfolio').select('*').order('urutan');
   if (error) { showToast('❌ Error load portfolio: ' + error.message, 'error'); return; }
   
   const total = data.reduce((s, r) => s + (r.nilai||0), 0);
@@ -812,7 +809,7 @@ async function editPortfolio(id, currentVal) {
 async function savePortfolio(id) {
   const val = parseInt(document.getElementById('inp-' + id).value);
   if (isNaN(val)) { showToast('❌ Nilai harus angka!', 'error'); return; }
-  const { error } = await supabase.from('portfolio').update({ nilai: val }).eq('id', id);
+  const { error } = await sbClient.from('portfolio').update({ nilai: val }).eq('id', id);
   if (error) { showToast('❌ Gagal simpan: ' + error.message, 'error'); return; }
   showToast('✅ Nilai portfolio diperbarui!', 'success');
   loadPortfolio();
@@ -820,8 +817,8 @@ async function savePortfolio(id) {
 
 // ── CASHFLOW ──
 async function loadCashflow() {
-  if (!supabase) return;
-  const { data, error } = await supabase.from('cashflow').select('*').order('urutan');
+  if (!sbClient) return;
+  const { data, error } = await sbClient.from('cashflow').select('*').order('urutan');
   if (error) return;
 
   const incomes = data.filter(r => r.tipe === 'income' && r.aktif);
@@ -900,7 +897,7 @@ async function editCashflow(id, val) {
 async function saveCashflow(id) {
   const val = parseInt(document.getElementById('cf-inp-' + id).value);
   if (isNaN(val)) return;
-  const { error } = await supabase.from('cashflow').update({ nilai: val }).eq('id', id);
+  const { error } = await sbClient.from('cashflow').update({ nilai: val }).eq('id', id);
   if (error) { showToast('❌ ' + error.message, 'error'); return; }
   showToast('✅ Cashflow diperbarui!', 'success');
   loadCashflow();
@@ -908,8 +905,8 @@ async function saveCashflow(id) {
 
 // ── GOALS ──
 async function loadGoals() {
-  if (!supabase) return;
-  const { data, error } = await supabase.from('goals').select('*').order('urutan');
+  if (!sbClient) return;
+  const { data, error } = await sbClient.from('goals').select('*').order('urutan');
   if (error) return;
 
   // Haji
@@ -977,7 +974,7 @@ async function editGoal(id, val) {
 async function saveGoal(id) {
   const val = parseInt(document.getElementById('g-inp-' + id).value);
   if (isNaN(val)) return;
-  const { error } = await supabase.from('goals').update({ nilai: val }).eq('id', id);
+  const { error } = await sbClient.from('goals').update({ nilai: val }).eq('id', id);
   if (error) { showToast('❌ ' + error.message, 'error'); return; }
   showToast('✅ Goal diperbarui!', 'success');
   loadGoals();
@@ -985,8 +982,8 @@ async function saveGoal(id) {
 
 // ── ACTION ITEMS ──
 async function loadActions() {
-  if (!supabase) return;
-  const { data, error } = await supabase.from('action_items').select('*').order('urutan');
+  if (!sbClient) return;
+  const { data, error } = await sbClient.from('action_items').select('*').order('urutan');
   if (error) return;
 
   const container = document.getElementById('actions-content');
@@ -1044,7 +1041,7 @@ async function toggleAction(id, checked) {
     document.querySelector(`#action-${id} .action-check`).checked = !checked;
     return;
   }
-  const { error } = await supabase.from('action_items')
+  const { error } = await sbClient.from('action_items')
     .update({ selesai: checked, status: checked ? 'DONE' : 'TODO' }).eq('id', id);
   if (error) { showToast('❌ ' + error.message, 'error'); return; }
   const row = document.getElementById('action-' + id);
